@@ -1,0 +1,405 @@
+---
+title: "use satpred for the first time in a small data with 166 rows and 49 columns---difficulty caused by unfimiliar feelings"
+---
+# Thanks to package satpred
+thanks
+## coxph in satpred
+### intro to coxph in satpred
+
+
+it adds cv and important variables print based on rfSRC
+
+
+
+
+
+```{r}
+# Load necessary libraries
+library(shellpipes)
+library(randomForestSRC)
+library(survival)
+library(satpred)
+library(readxl) # For reading Excel files
+library(dplyr) # For data manipulation
+satpredtheme()
+
+# Read data from Excel file
+data_path <- "C:/Users/luyu/Desktop/ISLR/data_surf.xlsx"
+train_df <- read_excel(data_path, skip = 2)
+
+# List of binary variables
+binary_vars <- c("ECTR","HP", "HD", "CRRT", "PE", "HP_only", "toxin_clear", 
+                 "toxin_mixed", "sex", "mental_health_illness", "dementia", 
+                 "asthma", "respiratory_failure", "respiratory_disease", 
+                 "hypertension", "coronary_heart_disease", 
+                 "congestive_heart_failure", "cardiac_disease", 
+                 "peptic_ulcer", "abnormal_liver_function", 
+                 "abnormal_kidney_function", "diabetes", "malignant_tumor", 
+                 "sequelae_of_stroke", "rheumatic_immune_diseases", 
+                 "history_of_past_mental_health_disease", "airway", "group", 
+                 "CPR", "ROSC", "ROSC_time", "intubation_or_ventilation", 
+                 "intubation", "ventilation", "induced_vomiting_or_catharsis", 
+                 "induced_vomiting", "catharsis", "special_antidote", 
+                 "vasoactive_drugs", "glucocorticoids", "activated_carbon", 
+                 "gastric_lavage", "gastric_lavage_special_bed", 
+                 "gastric_lavage_comp", 
+                 "endotracheal_intubation_during_gastric_lavage", 
+                 "gastric_lavage_after_admission", 
+                 "local_hospital_has_gastric_lavage_before_admission")
+
+# List of columns to create dummy variables for
+dummy_vars <- c("toxin_1_eng", "disposition_in_the_hospital", 
+                "occupation", "reasons_for_poisoning")
+
+# List of numeric variables
+numeric_vars <- c("toxin_num", "dosage_liquid_1", "age", "MAP", "HR", "RR")
+
+# Keep only necessary variables and remove missing values
+train_df <- train_df %>%
+  select(all_of(binary_vars), all_of(dummy_vars), all_of(numeric_vars), "survival_time", "censor") %>%
+  na.omit()
+
+set.seed(8888)
+
+# Cross-validation
+tuned_coxph <- modtune(Surv(survival_time, censor) ~ ., train_df, param_grid = NULL,
+                       modfun = coxph.satpred, parallelize = TRUE)
+
+print(tuned_coxph$besTune)
+plot(tuned_coxph)
+
+# Fit model
+fit_coxph <- modfit(tuned_coxph, return_data = FALSE)
+
+# Individual survival curves
+scurves_coxph <- get_indivsurv(fit_coxph, train_df)
+plot(scurves_coxph)
+
+# Concordance score
+concord_coxph <- get_survconcord(fit_coxph)
+print(concord_coxph)
+
+# Permutation variable importance
+vimp_coxph <- get_varimp(fit_coxph, type = "perm", newdata = train_df, nrep = 20, modelname = "coxph")
+plot(vimp_coxph)
+
+# Save results
+saveVars(fit_coxph, scurves_coxph, concord_coxph, vimp_coxph)
+
+```
+
+###   filter 所有有新水平的行 只保留 toxin_1_eng 中类别数量超过5个的行
+> # Print column names with only one level
+> print(cols_with_one_level_names)
+[1] "PE"                       "asthma"                  
+[3] "abnormal_liver_function"  "abnormal_kidney_function"
+[5] "group"
+
+```{r}
+# Load necessary libraries
+library(shellpipes)
+library(randomForestSRC)
+library(survival)
+library(satpred)
+library(readxl) # For reading Excel files
+library(dplyr) # For data manipulation
+satpredtheme()
+
+# Read data from Excel file
+data_path <- "C:/Users/luyu/Desktop/ISLR/data_surf.xlsx"
+train_df <- read_excel(data_path, skip = 2)
+
+# List of binary variables
+binary_vars <- c("ECTR","HP", "HD", "CRRT", "PE", "HP_only", "sex", "mental_health_illness", "dementia", 
+                 "asthma", "respiratory_failure", "respiratory_disease", 
+                 "hypertension", "coronary_heart_disease", 
+                 "congestive_heart_failure", "cardiac_disease", 
+                 "peptic_ulcer", "abnormal_liver_function", 
+                 "abnormal_kidney_function", "diabetes", "malignant_tumor", 
+                 "sequelae_of_stroke", "rheumatic_immune_diseases", 
+                 "history_of_past_mental_health_disease", "airway", "group", 
+                 "CPR", "ROSC","intubation_or_ventilation", 
+                 "intubation", "ventilation", "induced_vomiting_or_catharsis", 
+                 "induced_vomiting", "catharsis", "special_antidote", 
+                 "vasoactive_drugs", "glucocorticoids", "activated_carbon", 
+                 "gastric_lavage", "gastric_lavage_special_bed", 
+                 "gastric_lavage_comp", 
+                 "endotracheal_intubation_during_gastric_lavage", 
+                 "gastric_lavage_after_admission", 
+                 "local_hospital_has_gastric_lavage_before_admission")
+
+# List of columns to create dummy variables for
+dummy_vars <- c("toxin_1_eng", "disposition_in_the_hospital", 
+                "occupation")
+
+# List of numeric variables
+numeric_vars <- c("dosage_liquid_1", "age", "MAP", "HR", "RR")
+
+# Keep only necessary variables and remove missing values
+train_df <- train_df %>%
+  select(all_of(binary_vars), all_of(dummy_vars), all_of(numeric_vars), "survival_time", "censor") %>%
+  na.omit()
+
+# Only keep rows where the levels of `toxin_1_eng` have more than 5 occurrences
+valid_levels <- train_df %>%
+  group_by(toxin_1_eng) %>%
+  filter(n() > 5) %>%
+  pull(toxin_1_eng) %>%
+  unique()
+
+train_df <- train_df %>% filter(toxin_1_eng %in% valid_levels)
+
+# Convert necessary columns to factors
+train_df <- train_df %>%
+  mutate(across(all_of(binary_vars), as.factor),
+         across(all_of(dummy_vars), as.factor))
+
+# Remove columns with only one level and print their names
+cols_with_one_level <- sapply(train_df, function(col) is.factor(col) && length(unique(col)) == 1)
+cols_with_one_level_names <- names(cols_with_one_level[cols_with_one_level])
+train_df <- train_df %>% select(-one_of(cols_with_one_level_names))
+
+# Print column names with only one level
+print(cols_with_one_level_names)
+
+# Manually remove the specified columns
+cols_to_remove <- c("PE", "asthma", "abnormal_liver_function", "abnormal_kidney_function", "group")
+train_df <- train_df %>% select(-one_of(cols_to_remove))
+
+# Set seed for reproducibility
+set.seed(8888)
+
+# Cross-validation
+tuned_coxph <- modtune(Surv(survival_time, censor) ~ ., train_df, param_grid = NULL,
+                       modfun = coxph.satpred, parallelize = TRUE)
+
+print(tuned_coxph$besTune)
+plot(tuned_coxph)
+
+# Fit model
+fit_coxph <- modfit(tuned_coxph, return_data = FALSE)
+
+# Individual survival curves
+scurves_coxph <- get_indivsurv(fit_coxph, train_df)
+plot(scurves_coxph)
+
+# Concordance score
+concord_coxph <- get_survconcord(fit_coxph)
+print(concord_coxph)
+
+# Permutation variable importance
+vimp_coxph <- get_varimp(fit_coxph, type = "perm", newdata = train_df, nrep = 20, modelname = "coxph")
+plot(vimp_coxph)
+
+# Save results
+saveVars(fit_coxph, scurves_coxph, concord_coxph, vimp_coxph)
+
+
+
+```
+Error in { :
+task 1 failed - "cannot take a sample larger than the population when 'replace = FALSE'"
+### Then i will delete the process of cross-validation in the original satpred process
+ Permutation variable importance
+vimp_coxph <- get_varimp(fit_coxph, type = "perm", newdata = train_df, nrep = 20, modelname = "coxph")
+plot(vimp_coxph)
+
+
+above process could not be used, either----Error in { : 
+  task 1 failed - "cannot take a sample larger than the population when 'replace = FALSE'"
+  
+```{r}
+# Load necessary libraries
+library(shellpipes)
+library(randomForestSRC)
+library(survival)
+library(satpred)
+library(readxl) # For reading Excel files
+library(dplyr) # For data manipulation
+satpredtheme()
+
+# Read data from Excel file
+data_path <- "C:/Users/luyu/Desktop/ISLR/data_surf.xlsx"
+train_df <- read_excel(data_path, skip = 2)
+
+# List of binary variables
+binary_vars <- c("ECTR","HP", "HD", "CRRT", "PE", "HP_only", "sex", "mental_health_illness", "dementia", 
+                 "asthma", "respiratory_failure", "respiratory_disease", 
+                 "hypertension", "coronary_heart_disease", 
+                 "congestive_heart_failure", "cardiac_disease", 
+                 "peptic_ulcer", "abnormal_liver_function", 
+                 "abnormal_kidney_function", "diabetes", "malignant_tumor", 
+                 "sequelae_of_stroke", "rheumatic_immune_diseases", 
+                 "history_of_past_mental_health_disease", "airway", "group", 
+                 "CPR", "ROSC","intubation_or_ventilation", 
+                 "intubation", "ventilation", "induced_vomiting_or_catharsis", 
+                 "induced_vomiting", "catharsis", "special_antidote", 
+                 "vasoactive_drugs", "glucocorticoids", "activated_carbon", 
+                 "gastric_lavage", "gastric_lavage_special_bed", 
+                 "gastric_lavage_comp", 
+                 "endotracheal_intubation_during_gastric_lavage", 
+                 "gastric_lavage_after_admission", 
+                 "local_hospital_has_gastric_lavage_before_admission")
+
+# List of columns to create dummy variables for
+dummy_vars <- c("toxin_1_eng", "disposition_in_the_hospital", 
+                "occupation")
+
+# List of numeric variables
+numeric_vars <- c("dosage_liquid_1", "age", "MAP", "HR", "RR")
+
+# Keep only necessary variables and remove missing values
+train_df <- train_df %>%
+  select(all_of(binary_vars), all_of(dummy_vars), all_of(numeric_vars), "survival_time", "censor") %>%
+  na.omit()
+
+# Only keep rows where the levels of `toxin_1_eng` have more than 5 occurrences
+valid_levels <- train_df %>%
+  group_by(toxin_1_eng) %>%
+  filter(n() > 5) %>%
+  pull(toxin_1_eng) %>%
+  unique()
+
+train_df <- train_df %>% filter(toxin_1_eng %in% valid_levels)
+
+# Convert necessary columns to factors
+train_df <- train_df %>%
+  mutate(across(all_of(binary_vars), as.factor),
+         across(all_of(dummy_vars), as.factor))
+
+# Remove columns with only one level and print their names
+cols_with_one_level <- sapply(train_df, function(col) is.factor(col) && length(unique(col)) == 1)
+cols_with_one_level_names <- names(cols_with_one_level[cols_with_one_level])
+train_df <- train_df %>% select(-one_of(cols_with_one_level_names))
+
+# Print column names with only one level
+print(cols_with_one_level_names)
+
+
+
+# Set seed for reproducibility
+set.seed(8888)
+
+# Fit the Cox model
+fit_coxph <- coxph(Surv(survival_time, censor) ~ ., data = train_df)
+
+# Individual survival curves
+scurves_coxph <- survfit(fit_coxph)
+plot(scurves_coxph)
+
+# Concordance score
+concord_coxph <- summary(concordance(fit_coxph$linear.predictors ~ train_df$survival_time))
+print(concord_coxph)
+
+```
+```{r}
+# Permutation variable importance
+# Assuming you still want to compute permutation importance
+# You may need to adapt the function according to your package and its documentation
+vimp_coxph <- varImp(fit_coxph)
+plot(vimp_coxph)
+
+# Save results
+# Replace with appropriate save function or method based on your context
+# saveVars(fit_coxph, scurves_coxph, concord_coxph, vimp_coxph)
+
+```
+
+well, then I will try not to use coxph in satpred
+
+well, another strange thing---plot 
+```{r}
+# 打印前几行数据，特别是生存时间和状态列
+head(train_df[, c("survival_time", "censor")])
+
+# 打印生存时间和状态的摘要
+summary(train_df[, c("survival_time", "censor")])
+
+# 检查生存时间是否为零
+table(train_df$survival_time == 0)
+
+# 检查状态列
+table(train_df$censor)
+
+```
+#### do not use satpred
+```{r}
+# Load necessary libraries
+library(survival)
+library(readxl)
+library(dplyr)
+
+# Read data from Excel file
+data_path <- "C:/Users/luyu/Desktop/ISLR/data_surf.xlsx"
+train_df <- read_excel(data_path, skip = 2)
+
+# List of binary variables
+binary_vars <- c("ECTR","HP", "HD", "CRRT", "PE", "HP_only", "sex", "mental_health_illness", "dementia", 
+                 "asthma", "respiratory_failure", "respiratory_disease", 
+                 "hypertension", "coronary_heart_disease", 
+                 "congestive_heart_failure", "cardiac_disease", 
+                 "peptic_ulcer", "abnormal_liver_function", 
+                 "abnormal_kidney_function", "diabetes", "malignant_tumor", 
+                 "sequelae_of_stroke", "rheumatic_immune_diseases", 
+                 "history_of_past_mental_health_disease", "airway", "group", 
+                 "CPR", "ROSC","intubation_or_ventilation", 
+                 "intubation", "ventilation", "induced_vomiting_or_catharsis", 
+                 "induced_vomiting", "catharsis", "special_antidote", 
+                 "vasoactive_drugs", "glucocorticoids", "activated_carbon", 
+                 "gastric_lavage", "gastric_lavage_special_bed", 
+                 "gastric_lavage_comp", 
+                 "endotracheal_intubation_during_gastric_lavage", 
+                 "gastric_lavage_after_admission", 
+                 "local_hospital_has_gastric_lavage_before_admission")
+
+# List of columns to create dummy variables for
+dummy_vars <- c("toxin_1_eng", "disposition_in_the_hospital", 
+                "occupation")
+
+# List of numeric variables
+numeric_vars <- c("dosage_liquid_1", "age", "MAP", "HR", "RR")
+
+# Keep only necessary variables and remove missing values
+train_df <- train_df %>%
+  select(all_of(binary_vars), all_of(dummy_vars), all_of(numeric_vars), "survival_time", "censor") %>%
+  na.omit()
+
+# Only keep rows where the levels of `toxin_1_eng` have more than 5 occurrences
+valid_levels <- train_df %>%
+  group_by(toxin_1_eng) %>%
+  filter(n() > 5) %>%
+  pull(toxin_1_eng) %>%
+  unique()
+
+train_df <- train_df %>% filter(toxin_1_eng %in% valid_levels)
+
+# Convert necessary columns to factors
+train_df <- train_df %>%
+  mutate(across(all_of(binary_vars), as.factor),
+         across(all_of(dummy_vars), as.factor))
+
+# Remove columns with only one level and print their names
+cols_with_one_level <- sapply(train_df, function(col) is.factor(col) && length(unique(col)) == 1)
+cols_with_one_level_names <- names(cols_with_one_level[cols_with_one_level])
+train_df <- train_df %>% select(-one_of(cols_with_one_level_names))
+
+# Print column names with only one level
+print(cols_with_one_level_names)
+
+# Set seed for reproducibility
+set.seed(8888)
+
+# Fit the Cox model
+fit_coxph <- coxph(Surv(survival_time, censor) ~ ., data = train_df)
+
+# Individual survival curves
+scurves_coxph <- survfit(fit_coxph)
+plot(scurves_coxph, xlab = "Time", ylab = "Survival Probability", main = "Survival Curves from Cox PH Model")
+
+# Concordance score
+concord_coxph <- concordance(fit_coxph$linear.predictors ~ train_df$survival_time)
+print(summary(concord_coxph))
+
+```
+
+### In conclusion, too much variables could not reach our dreams
