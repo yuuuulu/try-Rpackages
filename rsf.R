@@ -1,3 +1,101 @@
+# method 1--using ranger package(quicker and not exploded R)
+# Load necessary packages
+library(ranger)
+library(survival)
+library(dplyr)
+library(ggplot2)
+
+# Load the lung dataset from the survival package
+data("lung")
+
+# Define binary variables and numeric variables
+binary_vars <- c("sex", "ph.ecog")
+
+numeric_vars <- c("age", "ph.karno", "pat.karno", "meal.cal", "wt.loss")
+
+# Create a new dataframe containing only the specified variables
+data1 <- lung %>%
+  select(all_of(binary_vars), all_of(numeric_vars), "time", "status")
+
+# Convert status variable from 1 and 2 to 0 and 1 (in the lung dataset, 1 indicates death and 2 indicates survival)
+data1$status <- ifelse(data1$status == 1, 1, 0)
+
+# Remove missing values
+data1 <- na.omit(data1)
+
+# Print the structure of the dataframe
+str(data1)
+
+# Check unique values of binary variables
+sapply(data1[binary_vars], unique)
+
+# Convert sex variable from "1" to 1 and "2" to 0 (in the lung dataset, 1 indicates male and 2 indicates female)
+data1$sex <- ifelse(data1$sex == 1, 1, 0)
+
+# Confirm the conversion results
+str(data1[binary_vars])
+
+# Create survival object
+surv_obj <- Surv(data1$time, data1$status)
+print(surv_obj)
+
+# Ensure reproducibility by setting the seed
+set.seed(123)
+
+# Run random forest survival model
+rf_model <- ranger(
+  formula = Surv(time, status) ~ .,  # Survival model formula
+  data = data1,                      # Data
+  importance = 'permutation',        # Variable importance calculation method
+  num.trees = 100,                   # Number of trees
+  seed = 123                         # Random seed
+)
+
+# Print model results
+print(rf_model)
+
+# Get variable importance
+var_importance <- rf_model$variable.importance
+
+# Print the top 20 variables by importance
+var_importance_sorted <- sort(var_importance, decreasing = TRUE)
+print(var_importance_sorted[1:20])
+
+# Select the top 20 important variables
+top_vars <- names(var_importance_sorted[1:20])
+print(top_vars)
+
+# Convert variable importance to dataframe
+importance_df <- data.frame(
+  Variable = names(var_importance),
+  Importance = var_importance
+)
+
+# Sort the importance and select the top 20 variables
+importance_df <- importance_df %>%
+  arrange(desc(Importance)) %>%
+  head(20)  # Select the top 20 variables
+
+# Plot the top 20 variables by importance
+ggplot(importance_df, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() +  # Flip the coordinates so the variable names are on the y-axis for better readability
+  labs(
+    title = "Variable Importance from Random Forest Model",
+    x = "Variables",
+    y = "Importance"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+
+
+# method 2--using randomForestSRC and satpred
+
 # Load necessary libraries
 library(shellpipes)
 library(randomForestSRC)
