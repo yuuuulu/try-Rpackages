@@ -1,0 +1,40 @@
+eg.1: lasso based on cox performs badly on c-index(0.08),while rsf 87%:
+Here I do not use the specific data but the general example for a better understanding
+Although Lasso-Cox regression was employed to select key harmful variables, the Cox model's limitations in capturing nonlinear relationships, as well as the complex interactions between certain variables, resulted in a low C-index. This limited linear discriminative ability can be attributed to several factors:
+
+First, certain interventions or treatments exhibit complex nonlinear relationships due to their varied effects depending on individual health conditions, underlying characteristics, and external factors. The efficacy of such interventions may differ significantly across various contexts, leading to instability or unpredictability in outcomes, particularly in extreme cases.
+
+Second, the effectiveness of emergency treatments, such as resuscitation procedures, is characterized by significant nonlinearity, varying with individual health conditions and exposure levels. Physiological responses can differ markedly between individuals, further exacerbating the nonlinear effects.
+
+Additionally, the influence of certain medications or treatments on physiological parameters varies depending on individual differences and external factors. These effects are further complicated by interactions with other concurrent treatments, increasing the complexity of nonlinearity and interaction effects within the model.
+
+Finally, the diverse responses to various conditions or stimuli also contribute significantly to nonlinear relationships. When there are large differences in exposure levels, the physiological responses of individuals may not follow a linear pattern, particularly near critical thresholds, where reactions can change abruptly, reflecting complex nonlinear effects.
+
+In summary, variables that are affected by individual differences and complex interactions likely contribute significantly to nonlinearity within the model, which the Cox model is insufficiently equipped to capture. Therefore, in analyzing these variables, it is crucial to employ models capable of capturing both nonlinear and interaction effects, such as the Random Survival Forest (RSF).
+
+In the RSF model, Permutation Importance is a non-parametric method for measuring the contribution of variables to model predictions. The steps involved include:
+
+Baseline Performance Calculation: The model's prediction performance on Out-of-Bag (OOB) data (e.g., C-index) is assessed to establish a baseline.
+Variable Permutation: Each variable is permuted in turn, with its values shuffled while keeping other variables constant. This permutation disrupts the relationship between the variable and the target outcome.
+Performance Change: The model's performance on the OOB data is re-evaluated. If the permuted variable is important to the model's predictions, the disruption will cause a significant decline in model performance.
+Importance Measurement: The importance of the variable is quantified by comparing the model's performance before and after permutation. The greater the performance decline, the more critical the variable is to the model's predictions.
+This method not only helps identify important variables but also reveals potential nonlinear relationships and complex interactions between variables within the model.
+
+Additionally, the Logrank Split Criterion is a critical method used in RSF to construct decision trees. The logrank test is a non-parametric method used to compare survival curves between two or more groups. The main steps involved are:
+
+Selection of Candidate Split Points: During the construction of decision trees, the model selects several potential split points for each candidate variable.
+Evaluation of Split Points: For each split point, the model calculates the survival difference between the groups formed by the split using the logrank statistic. A higher logrank statistic indicates a more significant difference in survival curves, making the split point more suitable for node splitting.
+Selection of the Best Split Point: The model selects the split point with the highest logrank statistic as the optimal split, maximizing the survival curve separation at that node.
+In the RSF model used in this study, the logrank split criterion ensures that each split maximizes the separation of survival times, constructing an effective tree structure capable of capturing potential survival patterns in the data. By combining the logrank split criterion with permutation importance, the model can not only identify variables with strong predictive power but also uncover complex relationships between variables and outcomes.
+
+In terms of model performance, RSF typically demonstrates a low Out-of-Bag (OOB) prediction error and a corresponding high C-index, indicating that it performs exceptionally well in capturing complex relationships within survival data. The model's ability to handle multiple unique events enhances its predictive accuracy further.
+
+It is also noteworthy that negative importance values in permutation importance analysis can reveal potentially useful information, such as noise and redundancy. For example, variables that are highly correlated with others may provide overlapping information, making them redundant. In such cases, after these redundant variables are permuted, the model may rely more on primary, meaningful variables, thereby avoiding unnecessary complexity in decision-making due to redundant information. This can lead to improved model prediction performance, reflected as negative importance.
+
+References:
+
+Wright, M. N. & Ziegler, A. (2017). ranger: A fast implementation of random forests for high dimensional data in C++ and R. J Stat Softw 77:1-17. doi:10.18637/jss.v077.i01.
+Schmid, M., Wright, M. N. & Ziegler, A. (2016). On the use of Harrell's C for clinical risk prediction via random survival forests. Expert Syst Appl 63:450-459. doi:10.1016/j.eswa.2016.07.018.
+Wright, M. N., Dankowski, T. & Ziegler, A. (2017). Unbiased split variable selection for random survival forests using maximally selected rank statistics. Stat Med 36:1272-1284. doi:10.1002/sim.7212.
+
+
